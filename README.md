@@ -39,7 +39,7 @@ The engine operates on a **Producer-Consumer** model between memory and disk:
 git clone [https://github.com/yourusername/cpp-kv-store.git](https://github.com/yourusername/cpp-kv-store.git)
 cd cpp-kv-store
 g++ -std=c++17 main.cpp -o kvstore
-
+```
 ## Basic Usage
 
 Run the executable to enter the interactive CLI.
