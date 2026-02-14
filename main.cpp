@@ -4,6 +4,7 @@
 #include<array>
 #include<sstream>
 #include<fstream>
+#include<cstdint>
 using namespace std;
 
 //structure of a table entry
@@ -106,7 +107,7 @@ void saveTable(string key,array<int,2>offset_range){
     fstream fileout("table.txt",ios::app);
 
     fileout<<key+":"+to_string(offset_range[0])+" "+to_string(offset_range[1])+"\n";
-    cout<<"saving entries...\n";
+    
 }
 
 
@@ -197,7 +198,7 @@ int main(){
         cout<<"Error opening file\n";
     }
 
-
+    cout<<"saving entries...\n";
     for(auto it:table){
         saveTable(it.first,it.second);
     }
