@@ -4,7 +4,7 @@ A minimalist, high-performance Key-Value storage engine built in Modern C++ usin
 
 
 
-## 🚀 Features
+##  Features
 * **Binary Storage:** Uses raw byte-stream I/O (`.write`/`.read`) for maximum performance and zero-copy overhead.
 * **Length-Prefixed Serialization:** Handles complex, multi-line, and binary values without delimiter collisions.
 * **O(1) Retrieval:** Maintains an in-memory `unordered_map` index storing byte offsets for instant data lookup.
@@ -13,7 +13,7 @@ A minimalist, high-performance Key-Value storage engine built in Modern C++ usin
 
 ---
 
-## 🏗️ Technical Architecture
+##  Technical Architecture
 
 The engine operates on a **Producer-Consumer** model between memory and disk:
 
@@ -28,7 +28,7 @@ The engine operates on a **Producer-Consumer** model between memory and disk:
 
 ---
 
-## 🛠️ Getting Started
+##  Getting Started
 
 ### Prerequisites
 * C++17 or higher
@@ -50,7 +50,7 @@ Run the executable to enter the interactive CLI.
 
 ---
 
-## 📊 Performance Concepts Applied
+##  Performance Concepts Applied
 
 ### Formatted vs. Raw I/O
 
@@ -62,7 +62,7 @@ The engine utilizes `tellp()` and `seekg()` to manage pointers. By opening the f
 
 ---
 
-## 🛤️ Roadmap
+##  Roadmap
 
 * [ ] Implement Logging for crash failures
 
@@ -83,13 +83,13 @@ The engine utilizes `tellp()` and `seekg()` to manage pointers. By opening the f
 ---
 
 
-## 📜 License
+##  License
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-## 🧠 Lessons Learned
+##  Lessons Learned
 
 * Discovered the behavior of `ios::app` and how it affects write pointer positioning.
 * Learned why binary storage is preferable over text storage when precise offsets matter.

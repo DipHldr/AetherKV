@@ -42,7 +42,7 @@ class Table{
 //the entry is a whole string so we will need to parse it to get 
 //the key and value pair
 /* NEEDS A WHOLE LOT OF WORK ON THIS, ITS JUST A BASIC VERSION */
-array<string,2> processed_string(string str){
+array<string,2> process_key_value_string(string str){
     size_t position=str.find(":");
      
     if(position==string::npos){
@@ -146,6 +146,44 @@ void loadTable(unordered_map<string,array<int,2>>&table){
 }
 
 
+string get_value(string key,unordered_map<string,array<int,2>>&table){
+
+    if(table.find(key)==table.end())return "Key doesnt Exist\n";
+    string ss="storage.bin";
+
+    int start_offset=table[key][0];
+    //storage format is [key_length] [key_content] [value_length] [value_content]
+    fstream ff(ss,ios::binary);
+
+    //pointing offset to proper place for reading
+    ff.seekg(start_offset);
+
+    //we used uint32_t previously to store the key value
+    uint32_t k_len,v_len;
+
+    //reading from the curent off set for size of k_len bytes
+    //and pooring it into k_len
+    ff.read((char*)&k_len,sizeof(k_len));
+
+    //moving the read pointer by k_len (cuz we already know the key)
+    ff.seekg(k_len,ios::cur);
+
+    //not reading the value length (same mechanism as we did in key length above)
+    ff.read((char*)&v_len,sizeof(v_len));
+
+    //creating a string of v_len characters pre-filled with spaces.
+    string value(v_len,' ');
+
+    //in c++ string data is stored contiguously, thats why providing the address 
+    //of the first character allows .read() to fill the entire string's memory block 
+    //directly from the file.
+    ff.read(&value[0],v_len);
+
+    return value;
+}
+
+
+
 //JUST A UTIL FOR PRINTING THE OFF TABLE (FOR TESTING PURPOSES)
 void printTable(unordered_map<string,array<int,2>>&mp){
     if(!mp.size()){
@@ -156,6 +194,13 @@ void printTable(unordered_map<string,array<int,2>>&mp){
     for(auto it:mp){
         cout<<it.first<<"-->"<<it.second[0]<<"-"<<it.second[1]<<"\n";
     }
+}
+
+array<string,2> parseCommand(const string& ss){
+    int pos=ss.find(" ");
+    string command=ss.substr(0,pos);
+    string value=ss.substr(pos+1);
+    return {command,value};
 }
 
 int main(){
@@ -170,22 +215,80 @@ int main(){
     while(true){
         string ss="";
         cout<<">";
-        getline(cin,ss);//key value pair
+        //INPUT (TODO: need to make this accept multiline)
+        getline(cin,ss);
+
+        //EXTRACT THE COMMAND and VALUE (<COMMAND> <VALUE>)
+        array<string,2> processed_string= parseCommand(ss);
+        string command=processed_string[0];
+        string command_value=processed_string[1];
+
+        /*
+        Commands:
+        SET key:value
+        GET key -->gets a key
+        DEL key --> deletes a key
+        EXISTS key -->checks if a key exists
+        KEYS --> lists all keys
+        COMPACT -->runs compaction algo
+        STATS -->shows database stats
+        FLUSHALL -->deletes the database
+        */
         
+        if(command=="SET"){
+          //IMPLEMENT SET LOGIC
+          //processing key value pair
+            array<string,2>arr=process_key_value_string(ss);
+            
+            if(arr[1]==""){
+                cout<<"cannot store null value\n";
+                continue;
+            }
+
+            array<int,2>position=saveFileUtil(arr[0],arr[1]);
+            table[arr[0]]={position[0],position[1]};
+
+
+        }
+        else if(command=="GET"){
+            //IMPLEMENT GET LOGIC
+
+        }
+        else if(command=="DEL"){
+            //IMPLEMENT DEL LOGIC
+            
+        }
+        else if(command=="EXISTS"){
+            //IMPLEMENT EXISTS LOGIC
+            
+        }
+        else if(command=="KEYS"){
+            //IMPLEMENT KEYS LOGIC
+
+        }
+        else if(command=="COMPACT"){
+            //IMPLEMENT COMPACT LOGIC
+                        
+        }
+        else if(command=="STATS"){
+            //IMPLEMENT STATS LOGIC
+            
+        }
+        else if(command=="FLUSHALL"){
+            //IMPLEMENT FLUSHALL LOGIC
+            
+        }
+
+
+        
+
+        /*
         if(ss=="exit"){
             break;
         }
 
-        array<string,2>arr=processed_string(ss);
         
-        if(arr[1]==""){
-            cout<<"cannot store null value\n";
-            continue;
-        }
-
-        array<int,2>position=saveFileUtil(arr[0],arr[1]);
-        // table[arr[0]]=to_string(arr[0].length()+arr[1].length()+1);
-        table[arr[0]]={position[0],position[1]};
+        */
 
     }
 
