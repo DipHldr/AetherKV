@@ -43,7 +43,7 @@ class Table{
 //the key and value pair
 /* NEEDS A WHOLE LOT OF WORK ON THIS, ITS JUST A BASIC VERSION */
 array<string,2> process_key_value_string(string str){
-    size_t position=str.find(":");
+    size_t position=str.find(" ");
      
     if(position==string::npos){
         return {str,""};
@@ -238,7 +238,7 @@ int main(){
         if(command=="SET"){
           //IMPLEMENT SET LOGIC
           //processing key value pair
-            array<string,2>arr=process_key_value_string(ss);
+            array<string,2>arr=process_key_value_string(command_value);
             
             if(arr[1]==""){
                 cout<<"cannot store null value\n";
