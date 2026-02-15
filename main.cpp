@@ -56,12 +56,12 @@ array<string,2> process_key_value_string(string str){
 }
 
 //ss(string) --process--> key(string):value(int int)\n
-tuple<string,array<int,2>> process_table_string(string& ss){
+tuple<string,array<uint64_t,2>> process_table_string(string& ss){
     // cout<<"inside process_table_string\n";
     size_t position = ss.find(":");
     
     if(position==string::npos){
-        return {ss,{-1,-1}};
+        return {ss,{0,0}};
     }
     
     string key=ss.substr(0,position);
@@ -74,17 +74,21 @@ tuple<string,array<int,2>> process_table_string(string& ss){
     // cout<<value_1<<"\n";
     // cout<<"H\n";
     string value_2=value.substr(find_space+1);
-    array<int,2>arr={stoi(value_1),stoi(value_2)};
+    // array<int,2>arr={stoi(value_1),stoi(value_2)};
+     array<uint64_t,2> arr = {
+        stoull(value_1),
+        stoull(value_2)
+    };
 
     return {key,arr};
 }
 
 //UTIL TO SAVE KEY VALUE PAIR IN A PERSISTENT TXT FILE 
-array<int,2> saveFileUtil(string key,string value){
+array<uint64_t,2> saveFileUtil(string key,string value){
     fstream fileout("storage.bin",ios::app|ios::binary|ios::ate);
     // cout<<"H\n"
     fileout.seekp(0,ios::end);
-    int x=fileout.tellp();
+    uint64_t x=fileout.tellp();
     // fileout<<key+":"+value+"\0";
 
     uint32_t k=key.size();
@@ -96,14 +100,14 @@ array<int,2> saveFileUtil(string key,string value){
     fileout.write((char*)&v,sizeof(v));
     fileout.write(value.data(),v);
 
-    int y=fileout.tellp();
+    uint64_t y=fileout.tellp();
 
     return {x,y};
 }
 
 // UTIL TO SAVE THE TABLE OF OFFSET IN A PERSISTENT FILE SO THAT WE CAN
 // FIND THE KEY VALUE PAIR STORED IN STORAGE.TXT USING THIS TABLE
-void saveTable(string key,array<int,2>offset_range){
+void saveTable(string key,array<uint64_t,2>offset_range){
     fstream fileout("table.txt",ios::app);
 
     fileout<<key+":"+to_string(offset_range[0])+" "+to_string(offset_range[1])+"\n";
@@ -112,7 +116,7 @@ void saveTable(string key,array<int,2>offset_range){
 
 
 // THE SAVED AND PERSISTENT OFFSET TABLE IS LOADED INTO MEMORY FOR USE
-void loadTable(unordered_map<string,array<int,2>>&table){
+void loadTable(unordered_map<string,array<uint64_t,2>>&table){
     fstream filein("table.txt",ios::in);
 
     if(!filein){
@@ -138,7 +142,7 @@ void loadTable(unordered_map<string,array<int,2>>&table){
         cout<<"Inside load table\n";
         while(getline(filein,ss)){
             // cout<<ss<<"\n";
-            tuple<string,array<int,2>>arr=process_table_string(ss);
+            tuple<string,array<uint64_t,2>>arr=process_table_string(ss);
             // cout<<"H\n";
             table[get<0>(arr)]={get<1>(arr)[0],get<1>(arr)[1]};
         }
@@ -146,33 +150,40 @@ void loadTable(unordered_map<string,array<int,2>>&table){
 }
 
 
-string get_value(string key,unordered_map<string,array<int,2>>&table){
+string get_value(string key,unordered_map<string,array<uint64_t,2>>&table){
 
     if(table.find(key)==table.end())return "Key doesnt Exist\n";
     string ss="storage.bin";
 
-    int start_offset=table[key][0];
     //storage format is [key_length] [key_content] [value_length] [value_content]
-    fstream ff(ss,ios::binary);
+    fstream ff(ss,ios::in|ios::binary);
+    if(!ff) return "FILE OPEN FAILED\n";
+    uint64_t start_offset=table[key][0];
+
 
     //pointing offset to proper place for reading
     ff.seekg(start_offset);
 
     //we used uint32_t previously to store the key value
-    uint32_t k_len,v_len;
-
+    uint32_t k_len=0,v_len=0;
+    
     //reading from the curent off set for size of k_len bytes
     //and pooring it into k_len
     ff.read((char*)&k_len,sizeof(k_len));
+    if(!ff) return "READ FAIL KLEN\n";
 
     //moving the read pointer by k_len (cuz we already know the key)
     ff.seekg(k_len,ios::cur);
 
     //not reading the value length (same mechanism as we did in key length above)
     ff.read((char*)&v_len,sizeof(v_len));
+    if(!ff) return "READ FAIL VLEN\n";
+
+    if(v_len > 10'000'000)  // sanity guard
+        return "CORRUPTED LENGTH\n";
 
     //creating a string of v_len characters pre-filled with spaces.
-    string value(v_len,' ');
+    string value(v_len,'\0');
 
     //in c++ string data is stored contiguously, thats why providing the address 
     //of the first character allows .read() to fill the entire string's memory block 
@@ -185,7 +196,7 @@ string get_value(string key,unordered_map<string,array<int,2>>&table){
 
 
 //JUST A UTIL FOR PRINTING THE OFF TABLE (FOR TESTING PURPOSES)
-void printTable(unordered_map<string,array<int,2>>&mp){
+void printTable(unordered_map<string,array<uint64_t,2>>&mp){
     if(!mp.size()){
         cout<<"No table yet\n";
         return;
@@ -207,21 +218,36 @@ int main(){
     cout<<"Welcome to key value Storage\n";
     // Table t; // this table is for storing the key offset to find data in a file
 
-    unordered_map<string,array<int,2>>table;
+    unordered_map<string,array<uint64_t,2>>table;
     // cout<<"H\n";
     loadTable(table);
     printTable(table);
 
     while(true){
-        string ss="";
+        string input="";
         cout<<">";
-        //INPUT (TODO: need to make this accept multiline)
-        getline(cin,ss);
+        //TAKING INPUT
+        getline(cin,input);
+        stringstream ss(input);
+        
+        //EXTRACT THE COMMAND KEY and VALUE (<COMMAND> <KEY> <VALUE>)
+        string command,key,value;
+        ss>>command>>key;
 
-        //EXTRACT THE COMMAND and VALUE (<COMMAND> <VALUE>)
-        array<string,2> processed_string= parseCommand(ss);
-        string command=processed_string[0];
-        string command_value=processed_string[1];
+        string remaining;
+        getline(ss,remaining);
+        if(!remaining.empty()&&remaining[0]==' ')remaining.erase(0,1);
+        if(remaining=="<<"){
+            cout<<"Welcome to multiline mode\n";
+            value="";
+            string line;
+            while(getline(cin,line)&&line!="END"){
+                value+=line+"\n";
+            }
+        }
+        else{
+            value=remaining;
+        }       
 
         /*
         Commands:
@@ -237,25 +263,26 @@ int main(){
         
         if(command=="SET"){
           //IMPLEMENT SET LOGIC
-          //processing key value pair
-            array<string,2>arr=process_key_value_string(command_value);
-            
-            if(arr[1]==""){
+
+            if(value==""){
                 cout<<"cannot store null value\n";
                 continue;
             }
 
-            array<int,2>position=saveFileUtil(arr[0],arr[1]);
-            table[arr[0]]={position[0],position[1]};
+            array<uint64_t,2>position=saveFileUtil(key,value);
+            table[key]={position[0],position[1]};
 
 
         }
         else if(command=="GET"){
             //IMPLEMENT GET LOGIC
+            string stored_val=get_value(key,table);
+            cout<<stored_val<<"\n";
 
         }
         else if(command=="DEL"){
             //IMPLEMENT DEL LOGIC
+            table.erase(key);//DEMO LOGIC
             
         }
         else if(command=="EXISTS"){
@@ -278,17 +305,9 @@ int main(){
             //IMPLEMENT FLUSHALL LOGIC
             
         }
-
-
-        
-
-        /*
-        if(ss=="exit"){
+        else if(command=="EXIT"||command=="exit"){
             break;
         }
-
-        
-        */
 
     }
 

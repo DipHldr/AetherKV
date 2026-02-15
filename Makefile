@@ -16,7 +16,10 @@ clean:
 		rm -f *.o ${TARGET} ${TEST_EXE}
 
 del:
-		rm -f *.txt ${TARGET} ${TEST_EXE}
+		rm -f *.bin ${TARGET} ${TEST_EXE}
+delx:
+		rm -f *.exe ${TARGET}${TEXT_EXE}
+
 ${TEST_EXE}: test.cpp
 	${CXX} ${CXXFLAGS} test.cpp -o ${TEST_EXE}
 
