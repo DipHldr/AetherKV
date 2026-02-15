@@ -1,4 +1,4 @@
-# BitC++ | High-Performance Persistent KV Store
+# C++ | High-Performance Persistent KV Store
 
 A minimalist, high-performance Key-Value storage engine built in Modern C++ using an **Append-Only Log (AOL)** architecture. This project implements binary serialization, length-prefixed records, and an in-memory hash index for $O(1)$ disk access.
 
