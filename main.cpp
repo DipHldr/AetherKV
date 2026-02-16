@@ -254,6 +254,7 @@ int main(){
         SET key:value
         GET key -->gets a key
         DEL key --> deletes a key
+        UPDATE key --> updates a key
         EXISTS key -->checks if a key exists
         KEYS --> lists all keys
         COMPACT -->runs compaction algo
@@ -279,6 +280,9 @@ int main(){
             string stored_val=get_value(key,table);
             cout<<stored_val<<"\n";
 
+        }
+        else if(command=="UPDATE"){
+            //IMPLEMENT UPDATE LOGIC
         }
         else if(command=="DEL"){
             //IMPLEMENT DEL LOGIC
