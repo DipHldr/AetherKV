@@ -165,7 +165,4 @@ Future research will explore transactional support through:
 
 These mechanisms will allow atomic multi-key operations and stronger consistency guarantees across distributed components.
 
----
-
-This roadmap reflects an ongoing effort to transform the project from a single-node experimental engine into a scalable, reliable distributed storage system through iterative architectural evolution and applied systems research.
 
