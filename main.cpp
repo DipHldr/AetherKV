@@ -57,10 +57,10 @@ uint64_t saveFileUtil(string key,string value){
     uint32_t k=key.size();
     uint32_t v=value.size();
     
-    fileout.write((char*)&k,sizeof(k));
+    fileout.write(reinterpret_cast<const char*>(&k),sizeof(k));
     fileout.write(key.data(),k);
 
-    fileout.write((char*)&v,sizeof(v));
+    fileout.write(reinterpret_cast<const char*>(&v),sizeof(v));
     fileout.write(value.data(),v);
 
     return x;
@@ -73,15 +73,15 @@ void saveTable(string key,uint64_t offset_range){
 
     //key_length key value(we know its 8 bytes because its stored in uint64_t)
     uint32_t k_len=key.size();
-    fileout.write((char*)&k_len,sizeof(k_len));
+    fileout.write(reinterpret_cast<const char*>(&k_len),sizeof(k_len));
     fileout.write(key.data(),k_len);
     fileout.write(reinterpret_cast<const char*>(&offset_range),sizeof(offset_range));
     fileout.close();
 }
 
 
-// THE SAVED AND PERSISTENT OFFSET TABLE IS LOADED INTO MEMORY FOR USE
-void loadTable(const unordered_map<string,uint64_t>&table,const string& indexFile){
+// THE SAVED AND PERSISTENT OFFSET TABLE INTO A BINARY FILE
+void persistTable(const unordered_map<string,uint64_t>&table,const string& indexFile){
     string tempFile=indexFile+".tmp";
     fstream fileout(tempFile,ios::binary);
 
@@ -100,6 +100,30 @@ void loadTable(const unordered_map<string,uint64_t>&table,const string& indexFil
 
     filesystem::rename(tempFile,indexFile);   
 
+}
+
+void loadIndexTableFromFile(const string& filename,unordered_map<string,uint64_t>&table){
+    fstream ff(filename,ios::binary);
+    if(!ff){
+        cout<<"No Indexing Yet\n";
+        //here we can call a recovery function too
+        return;
+    }
+
+    while(ff.peek()!=EOF){
+        uint32_t k_len;
+        ff.read(reinterpret_cast<char*>(&k_len),sizeof(k_len));
+        
+        string key(k_len,'\0');
+        ff.read(key.data(),k_len);
+
+        uint64_t offset;
+        ff.read(reinterpret_cast<char*>(&offset),sizeof(offset));
+
+        table[key]=offset;
+    }
+
+    ff.close();
 }
 
 //needs to get fixed due to change in table
@@ -198,8 +222,9 @@ int main(){
     // Table t; // this table is for storing the key offset to find data in a file
 
     unordered_map<string,uint64_t>table;
-    // cout<<"H\n";
-    loadTable(table);
+    
+    string indexFile="table.bin";
+    loadIndexTableFromFile(indexFile,table);
     printTable(table);
 
     while(true){
@@ -249,9 +274,9 @@ int main(){
                 continue;
             }
 
-            uint64_t position=saveFileUtil(key,value);
-            table[key]=position;
-
+            uint64_t offset=saveFileUtil(key,value);
+            table[key]=offset;
+            saveTable(key,offset);
 
         }
         else if(command=="GET"){
@@ -295,18 +320,18 @@ int main(){
     }
 
     //deleting contents of table file so that i can write updated values
-    fstream dfile("table.txt",ios::out|ios::trunc);
+    // fstream dfile("table.bin",ios::out|ios::trunc);
 
-    if(dfile.is_open()){
-        dfile.close();
-    }else{
-        cout<<"Error opening file\n";
-    }
+    // if(dfile.is_open()){
+    //     dfile.close();
+    // }else{
+    //     cout<<"Error opening file\n";
+    // }
 
-    cout<<"saving entries...\n";
-    for(auto it:table){
-        saveTable(it.first,it.second);
-    }
+    // cout<<"saving entries...\n";
+    // for(auto it:table){
+    //     saveTable(it.first,it.second);
+    // }
 
     return 0;
 }
