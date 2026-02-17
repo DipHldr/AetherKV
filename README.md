@@ -163,6 +163,6 @@ Future research will explore transactional support through:
 * Two-Phase Commit coordination
 * Snapshot isolation models
 
-These mechanisms will allow atomic multi-key operations and stronger consistency guarantees across distributed components.
+
 
 
