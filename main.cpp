@@ -68,8 +68,8 @@ uint64_t saveFileUtil(string key,string value){
 
 // UTIL TO SAVE THE TABLE OF OFFSET IN A PERSISTENT FILE SO THAT WE CAN
 // FIND THE KEY VALUE PAIR STORED IN STORAGE.TXT USING THIS TABLE
-void saveTable(string key,uint64_t offset_range){
-    fstream fileout("table.bin",ios::app|ios::binary|ios::ate);
+void saveTable(string key,uint64_t offset_range,const string& indexFile){
+    fstream fileout(indexFile,ios::app|ios::binary|ios::ate);
 
     //key_length key value(we know its 8 bytes because its stored in uint64_t)
     uint32_t k_len=key.size();
@@ -83,11 +83,13 @@ void saveTable(string key,uint64_t offset_range){
 // THE SAVED AND PERSISTENT OFFSET TABLE INTO A BINARY FILE
 void persistTable(const unordered_map<string,uint64_t>&table,const string& indexFile){
     string tempFile=indexFile+".tmp";
-    fstream fileout(tempFile,ios::binary);
+    fstream fileout(tempFile,ios::binary|ios::app);
 
-    if(!fileout){
+
+    if(!fileout.is_open()){
         cout<<"File doesn't exist\n";
     }
+    
     for(const auto&[key,offset]:table){
         uint32_t k_len=key.size();
 
@@ -102,28 +104,43 @@ void persistTable(const unordered_map<string,uint64_t>&table,const string& index
 
 }
 
-void loadIndexTableFromFile(const string& filename,unordered_map<string,uint64_t>&table){
-    fstream ff(filename,ios::binary);
-    if(!ff){
+unordered_map<string,uint64_t> loadIndexTableFromFile(const string& filename){
+    unordered_map<string,uint64_t> table;
+    fstream ff(filename,ios::binary|ios::in);
+    if(!ff.is_open()){
         cout<<"No Indexing Yet\n";
         //here we can call a recovery function too
-        return;
+        return table;
     }
 
-    while(ff.peek()!=EOF){
+    while(true){
         uint32_t k_len;
         ff.read(reinterpret_cast<char*>(&k_len),sizeof(k_len));
-        
+        if(ff.eof())break;
+         if(!ff) {
+            cout << "Corrupted index file (key length)\n";
+            break;
+        }
         string key(k_len,'\0');
-        ff.read(key.data(),k_len);
+        ff.read(&key[0],k_len);
+        if(!ff) {
+            cout << "Corrupted index file (key data)\n";
+            break;
+        }
 
         uint64_t offset;
         ff.read(reinterpret_cast<char*>(&offset),sizeof(offset));
+
+        if(!ff) {
+            cout << "Corrupted index file (offset)\n";
+            break;
+        }
 
         table[key]=offset;
     }
 
     ff.close();
+    return table;
 }
 
 //needs to get fixed due to change in table
@@ -224,7 +241,7 @@ int main(){
     unordered_map<string,uint64_t>table;
     
     string indexFile="table.bin";
-    loadIndexTableFromFile(indexFile,table);
+    table=loadIndexTableFromFile(indexFile);
     printTable(table);
 
     while(true){
@@ -276,7 +293,7 @@ int main(){
 
             uint64_t offset=saveFileUtil(key,value);
             table[key]=offset;
-            saveTable(key,offset);
+            saveTable(key,offset,indexFile);
 
         }
         else if(command=="GET"){
