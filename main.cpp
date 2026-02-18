@@ -8,6 +8,27 @@
 #include <filesystem>
 
 using namespace std;
+// ***********************
+// Forward declarations
+// ************************
+
+unordered_map<string,uint64_t> recoverIndex(string& StorageFileName);
+
+
+
+//JUST A UTIL FOR PRINTING THE OFF TABLE (FOR TESTING PURPOSES)
+void printTable(unordered_map<string,uint64_t>&mp){
+    if(!mp.size()){
+        cout<<"No table yet\n";
+        return;
+    }
+
+    for(auto it:mp){
+        cout<<it.first<<"-->"<<it.second<<"\n";
+    }
+}
+
+
 
 //Index table structure--> key:record offset
 
@@ -81,6 +102,7 @@ void saveTable(string key,uint64_t offset_range,const string& indexFile){
 
 
 // THE SAVED AND PERSISTENT OFFSET TABLE INTO A BINARY FILE
+//THIS ONE IS FOR USE DURING TAKING SNAPSHOT IF TABLE GETS TOO BIG
 void persistTable(const unordered_map<string,uint64_t>&table,const string& indexFile){
     string tempFile=indexFile+".tmp";
     fstream fileout(tempFile,ios::binary|ios::app);
@@ -110,6 +132,8 @@ unordered_map<string,uint64_t> loadIndexTableFromFile(const string& filename){
     if(!ff.is_open()){
         cout<<"No Indexing Yet\n";
         //here we can call a recovery function too
+        string originalFileName="storage.bin";
+        table=recoverIndex(originalFileName);
         return table;
     }
 
@@ -122,7 +146,7 @@ unordered_map<string,uint64_t> loadIndexTableFromFile(const string& filename){
             break;
         }
         string key(k_len,'\0');
-        ff.read(&key[0],k_len);
+        ff.read(key.data(),k_len);
         if(!ff) {
             cout << "Corrupted index file (key data)\n";
             break;
@@ -188,25 +212,40 @@ string get_value(string key,unordered_map<string,uint64_t>&table){
 }
 
 //function for recovering Index table
-/*void recoverIndex(unordered_map<string,uint64_t>&table,string& filename){
-    fstream ff(filename,ios::binary);
+ unordered_map<string,uint64_t> recoverIndex(string& StorageFileName){
+    string tableFile="table.bin";
+    unordered_map<string,uint64_t>table;
+    fstream ff(StorageFileName,ios::binary|ios::in);
     if(!ff){
         cout<<"File not found\n";
         cout<<"No Index To Recover\n";
-        return;
+        return table;
     }
-    uint64_t len;
-    while(!ff.eof()){
+
+    while(true){
+        uint64_t offset=static_cast<uint64_t>(ff.tellg());
+
+        uint32_t k_len;
         //getting key length
-        ff.read((char*)&len,sizeof(len));
-        //pointing readpointer
-        ff.seekg(sizeof(len));
-        ff.
+       if(!ff.read(reinterpret_cast<char*>(&k_len),sizeof(k_len)))break;
 
+        string key(k_len,'\0');
 
+        if(!ff.read(key.data(),k_len))break;
+
+        uint32_t v_len;
+
+        if(!ff.read(reinterpret_cast<char*>(&v_len),sizeof(v_len)))break;
+
+        ff.seekg(v_len,ios::cur);
+
+        table[key]=offset;
+        saveTable(key,offset,tableFile);
     }
+    cout<<"Recovered Index\n";
+    printTable(table);
+    return table;
 }
-    */
 
 
 
@@ -215,17 +254,8 @@ string get_value(string key,unordered_map<string,uint64_t>&table){
 
 
 
-//JUST A UTIL FOR PRINTING THE OFF TABLE (FOR TESTING PURPOSES)
-void printTable(unordered_map<string,uint64_t>&mp){
-    if(!mp.size()){
-        cout<<"No table yet\n";
-        return;
-    }
 
-    for(auto it:mp){
-        cout<<it.first<<"-->"<<it.second<<"\n";
-    }
-}
+
 
 array<string,2> parseCommand(const string& ss){
     int pos=ss.find(" ");
@@ -336,19 +366,6 @@ int main(){
 
     }
 
-    //deleting contents of table file so that i can write updated values
-    // fstream dfile("table.bin",ios::out|ios::trunc);
-
-    // if(dfile.is_open()){
-    //     dfile.close();
-    // }else{
-    //     cout<<"Error opening file\n";
-    // }
-
-    // cout<<"saving entries...\n";
-    // for(auto it:table){
-    //     saveTable(it.first,it.second);
-    // }
 
     return 0;
 }
