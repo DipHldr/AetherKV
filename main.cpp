@@ -14,7 +14,17 @@ using namespace std;
 
 unordered_map<string,uint64_t> recoverIndex(string& StorageFileName);
 
+//new record format
+// [crc][magic][record_type][key_len][value_len]-->header
+//[header][data]-->New Format
 
+struct Header{
+uint32_t crc; //checksum
+uint32_t magic;
+uint16_t type;
+uint32_t key_len;
+uint32_t value_len;
+};
 
 //JUST A UTIL FOR PRINTING THE OFF TABLE (FOR TESTING PURPOSES)
 void printTable(unordered_map<string,uint64_t>&mp){
@@ -246,16 +256,6 @@ string get_value(string key,unordered_map<string,uint64_t>&table){
     printTable(table);
     return table;
 }
-
-
-
-
-
-
-
-
-
-
 
 array<string,2> parseCommand(const string& ss){
     int pos=ss.find(" ");
