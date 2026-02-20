@@ -18,6 +18,7 @@ unordered_map<string,uint64_t> recoverIndex(string& StorageFileName);
 // [crc][magic][record_type][key_len][value_len]-->header
 //[header][data]-->New Format
 
+#pragma pack(push,1);
 struct Header{
 uint32_t crc; //checksum
 uint32_t magic;
@@ -25,6 +26,7 @@ uint16_t type;
 uint32_t key_len;
 uint32_t value_len;
 };
+#pragma pack(pop)
 
 //JUST A UTIL FOR PRINTING THE OFF TABLE (FOR TESTING PURPOSES)
 void printTable(unordered_map<string,uint64_t>&mp){
@@ -38,6 +40,25 @@ void printTable(unordered_map<string,uint64_t>&mp){
     }
 }
 
+//CALCULATING CHECKSUM
+uint32_t calculate_checksum_crc32(const uint8_t* data, size_t length)
+{
+    uint32_t crc = 0xFFFFFFFF;
+
+    for(size_t i = 0; i < length; i++)
+    {
+        crc ^= data[i];
+        for(int j = 0; j < 8; j++)
+        {
+            if(crc & 1)
+                crc = (crc >> 1) ^ 0xEDB88320;
+            else
+                crc >>= 1;
+        }
+    }
+
+    return ~crc;
+}
 
 
 //Index table structure--> key:record offset
