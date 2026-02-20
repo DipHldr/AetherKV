@@ -8,11 +8,28 @@
 #include <filesystem>
 
 using namespace std;
+
+
+//***************
+// NAMESPACES
+//***************
+
+//CONFIGS FOR KV STORE
+namespace EngineConfig{
+    constexpr uint32_t MAGIC = 0x4B565331; // KVS1
+    constexpr uint32_t MAX_VALUE_SIZE = 10'000'000;
+    constexpr const char* STORAGE_FILE = "storage.bin";
+    constexpr const char* INDEX_FILE = "table.bin";
+}
 // ***********************
 // Forward declarations
 // ************************
 
-unordered_map<string,uint64_t> recoverIndex(string& StorageFileName);
+// unordered_map<string,uint64_t> recoverIndex(string& StorageFileName);
+
+//*********************
+// STRUCT DEFINITIONS
+//*********************
 
 //new record format
 // [crc][magic][record_type][key_len][value_len]-->header
@@ -28,6 +45,10 @@ uint32_t value_len;
 };
 #pragma pack(pop)
 
+//********************
+// HELPER FUNCTIONS
+//********************
+
 //JUST A UTIL FOR PRINTING THE OFF TABLE (FOR TESTING PURPOSES)
 void printTable(unordered_map<string,uint64_t>&mp){
     if(!mp.size()){
@@ -40,7 +61,7 @@ void printTable(unordered_map<string,uint64_t>&mp){
     }
 }
 
-//CALCULATING CHECKSUM 
+//UTIL FOR CALCULATING CHECKSUM 
 //This is for streaming data
 //This is the "Engine". It never uses ~
 uint32_t checksum_CRC32(const char* data, size_t length, uint32_t crc) {
@@ -57,6 +78,9 @@ uint32_t checksum_CRC32(const char* data, size_t length, uint32_t crc) {
     return crc; 
 }
 
+//*******************
+// ENGINE FUNCTIONS
+//*******************
 
 //UTIL TO SAVE KEY VALUE PAIR IN A PERSISTENT TXT FILE 
 uint64_t saveFileUtil(string key,string value){
@@ -78,6 +102,46 @@ uint64_t saveFileUtil(string key,string value){
 
     return x;
 }
+
+
+//function for recovering Index table
+ unordered_map<string,uint64_t> recoverIndex(string& StorageFileName){
+    string tableFile="table.bin";
+    unordered_map<string,uint64_t>table;
+    fstream ff(StorageFileName,ios::binary|ios::in);
+    if(!ff){
+        cout<<"File not found\n";
+        cout<<"No Index To Recover\n";
+        return table;
+    }
+
+    while(true){
+        uint64_t offset=static_cast<uint64_t>(ff.tellg());
+
+        uint32_t k_len;
+        //getting key length
+       if(!ff.read(reinterpret_cast<char*>(&k_len),sizeof(k_len)))break;
+
+        string key(k_len,'\0');
+
+        if(!ff.read(key.data(),k_len))break;
+
+        uint32_t v_len;
+
+        if(!ff.read(reinterpret_cast<char*>(&v_len),sizeof(v_len)))break;
+
+        ff.seekg(v_len,ios::cur);
+
+        table[key]=offset;
+        saveTable(key,offset,tableFile);
+    }
+    cout<<"Recovered Index\n";
+    printTable(table);
+    return table;
+}
+
+
+
 
 // UTIL TO SAVE THE TABLE OF OFFSET IN A PERSISTENT FILE SO THAT WE CAN
 // FIND THE KEY VALUE PAIR STORED IN STORAGE.TXT USING THIS TABLE
@@ -203,41 +267,6 @@ string get_value(string key,unordered_map<string,uint64_t>&table){
     return value;
 }
 
-//function for recovering Index table
- unordered_map<string,uint64_t> recoverIndex(string& StorageFileName){
-    string tableFile="table.bin";
-    unordered_map<string,uint64_t>table;
-    fstream ff(StorageFileName,ios::binary|ios::in);
-    if(!ff){
-        cout<<"File not found\n";
-        cout<<"No Index To Recover\n";
-        return table;
-    }
-
-    while(true){
-        uint64_t offset=static_cast<uint64_t>(ff.tellg());
-
-        uint32_t k_len;
-        //getting key length
-       if(!ff.read(reinterpret_cast<char*>(&k_len),sizeof(k_len)))break;
-
-        string key(k_len,'\0');
-
-        if(!ff.read(key.data(),k_len))break;
-
-        uint32_t v_len;
-
-        if(!ff.read(reinterpret_cast<char*>(&v_len),sizeof(v_len)))break;
-
-        ff.seekg(v_len,ios::cur);
-
-        table[key]=offset;
-        saveTable(key,offset,tableFile);
-    }
-    cout<<"Recovered Index\n";
-    printTable(table);
-    return table;
-}
 
 array<string,2> parseCommand(const string& ss){
     int pos=ss.find(" ");
