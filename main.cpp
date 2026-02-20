@@ -40,62 +40,23 @@ void printTable(unordered_map<string,uint64_t>&mp){
     }
 }
 
-//CALCULATING CHECKSUM
-uint32_t calculate_checksum_crc32(const uint8_t* data, size_t length)
-{
-    uint32_t crc = 0xFFFFFFFF;
-
-    for(size_t i = 0; i < length; i++)
-    {
-        crc ^= data[i];
-        for(int j = 0; j < 8; j++)
-        {
-            if(crc & 1)
-                crc = (crc >> 1) ^ 0xEDB88320;
-            else
-                crc >>= 1;
+//CALCULATING CHECKSUM 
+//This is for streaming data
+//This is the "Engine". It never uses ~
+uint32_t checksum_CRC32(const char* data, size_t length, uint32_t crc) {
+    const uint8_t* byte_data = reinterpret_cast<const uint8_t*>(data);
+    for (size_t i = 0; i < length; i++) {
+        crc ^= byte_data[i];
+        for (int j = 0; j < 8; j++) {
+            if (crc & 1) crc = (crc >> 1) ^ 0xEDB88320;
+            else crc >>= 1;
         }
     }
 
-    return ~crc;
+    //need to do ~crc operation after streaming data ends
+    return crc; 
 }
 
-
-//Index table structure--> key:record offset
-
-//function to process string and get the key value pair
-//the entry is a whole string so we will need to parse it to get 
-//the key and value pair
-/* NEEDS A WHOLE LOT OF WORK ON THIS, ITS JUST A BASIC VERSION */
-array<string,2> process_key_value_string(string str){
-    size_t position=str.find(" ");
-     
-    if(position==string::npos){
-        return {str,""};
-    }
-
-    string key=str.substr(0,position);
-
-    string value=str.substr(position+1);
-    return {key,value};
-}
-
-//ss(string) --process--> key(string):uint64_t\n
-tuple<string,uint64_t> process_table_string(string& ss){
-    // cout<<"inside process_table_string\n";
-    size_t position = ss.find(":");
-    
-    if(position==string::npos){
-        return {ss,0};
-    }
-    
-    string key=ss.substr(0,position);
-    string value=ss.substr(position+1);
-    
-    
-
-    return {key,stoull(value)};
-}
 
 //UTIL TO SAVE KEY VALUE PAIR IN A PERSISTENT TXT FILE 
 uint64_t saveFileUtil(string key,string value){
