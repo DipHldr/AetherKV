@@ -192,7 +192,6 @@ JSON-like content:
     ]
   }
 }
-
 END
 ```
 

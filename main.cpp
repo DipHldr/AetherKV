@@ -143,8 +143,8 @@ uint64_t saveFileUtil(string key,string value, RecordType type=RECORD_SET){
 
 // UTIL TO SAVE THE TABLE OF OFFSET IN A PERSISTENT FILE SO THAT WE CAN
 // FIND THE KEY VALUE PAIR STORED IN STORAGE.TXT USING THIS TABLE
-void saveTable(string key,uint64_t offset_range,const string& indexFile){
-    fstream fileout(indexFile,ios::app|ios::binary|ios::ate);
+void saveTable(string key,uint64_t offset_range){
+    fstream fileout(EngineConfig::INDEX_FILE,ios::app|ios::binary|ios::ate);
 
     //key_length key value(we know its 8 bytes because its stored in uint64_t)
     uint32_t k_len=key.size();
@@ -155,7 +155,7 @@ void saveTable(string key,uint64_t offset_range,const string& indexFile){
 }
 //function for recovering Index table
  unordered_map<string,uint64_t> recoverIndex(){
-    string tableFile="table.bin";
+    // string tableFile="table.bin";
     unordered_map<string,uint64_t>table;
     fstream ff(EngineConfig::STORAGE_FILE,ios::binary|ios::in);
     if(!ff){
@@ -192,7 +192,7 @@ void saveTable(string key,uint64_t offset_range,const string& indexFile){
         }else if(head.type==RECORD_DELETE){
             table.erase(key);
         }
-        saveTable(key,current_offset,tableFile);
+        // saveTable(key,current_offset,tableFile);
     }
     cout<<"Recovered Index\n";
     // printTable(table);
@@ -207,7 +207,8 @@ void saveTable(string key,uint64_t offset_range,const string& indexFile){
 
 // THE SAVED AND PERSISTENT OFFSET TABLE INTO A BINARY FILE
 //THIS ONE IS FOR USE DURING TAKING SNAPSHOT IF TABLE GETS TOO BIG
-void persistTable(const unordered_map<string,uint64_t>&table,const string& indexFile){
+void persistTable(const unordered_map<string,uint64_t>&table){
+    string indexFile=EngineConfig::INDEX_FILE;
     string tempFile=indexFile+".tmp";
     fstream fileout(tempFile,ios::binary|ios::app);
 
@@ -230,14 +231,14 @@ void persistTable(const unordered_map<string,uint64_t>&table,const string& index
 
 }
 
-unordered_map<string,uint64_t> loadIndexTableFromFile(const string& filename){
+unordered_map<string,uint64_t> loadIndexTableFromFile(){
     unordered_map<string,uint64_t> table;
     fstream ff(EngineConfig::INDEX_FILE,ios::binary|ios::in);
     if(!ff.is_open()){
         cout<<"No Indexing Yet\n";
         //here we can call a recovery function too
         table=recoverIndex();
-        persistTable(table,EngineConfig::INDEX_FILE);
+        persistTable(table);
         return table;
     }
 
@@ -324,8 +325,8 @@ int main(){
 
     unordered_map<string,uint64_t>table;
     
-    string indexFile="table.bin";
-    table=loadIndexTableFromFile(indexFile);
+    // string indexFile="table.bin";
+    table=loadIndexTableFromFile();
     printTable(table);
 
     while(true){
@@ -377,7 +378,7 @@ int main(){
 
             uint64_t offset=saveFileUtil(key,value);
             table[key]=offset;
-            saveTable(key,offset,indexFile);
+            // saveTable(key,offset);
 
         }
         else if(command=="GET"){
@@ -391,6 +392,7 @@ int main(){
         }
         else if(command=="DEL"){
             //IMPLEMENT DEL LOGIC
+            saveFileUtil(key,"",RECORD_DELETE);
             table.erase(key);//DEMO LOGIC
             
         }
@@ -415,11 +417,11 @@ int main(){
             
         }
         else if(command=="EXIT"||command=="exit"){
+            persistTable(table);
             break;
         }
 
     }
-
 
     return 0;
 }
