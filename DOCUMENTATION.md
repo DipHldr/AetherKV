@@ -43,9 +43,9 @@ These are essential for:
 ***************************************
         COMMANDS TO IMPLEMENT       
 ---------------------------------------
-  * SET key:value
-  * GET key           → Retrieve value
-  * DEL key           → Delete key
+  * SET key:value (Done)
+  * GET key           → Retrieve value (Done)
+  * DEL key           → Delete key (Done)
   * EXISTS key        → Check existence
   * KEYS              → List all keys
   * COMPACT           → Run compaction
@@ -193,6 +193,11 @@ JSON-like content:
   }
 }
 END
+```
+
+## To Delete a key
+```
+DEL key
 ```
 
 ---
