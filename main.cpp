@@ -37,7 +37,7 @@ namespace EngineConfig{
 // [crc][magic][record_type][key_len][value_len]-->header
 //[header][data]-->New Format
 
-#pragma pack(push,1);
+#pragma pack(push,1)
 struct Header{
 uint32_t crc; //checksum
 uint32_t magic;
@@ -45,7 +45,7 @@ uint16_t type;
 uint32_t key_len;
 uint32_t value_len;
 };
-#pragma pack(pop);
+#pragma pack(pop)
 
 //enumerating type of the record
 enum RecordType : uint16_t {
@@ -141,12 +141,23 @@ uint64_t saveFileUtil(string key,string value, RecordType type=RECORD_SET){
 
 }
 
+// UTIL TO SAVE THE TABLE OF OFFSET IN A PERSISTENT FILE SO THAT WE CAN
+// FIND THE KEY VALUE PAIR STORED IN STORAGE.TXT USING THIS TABLE
+void saveTable(string key,uint64_t offset_range,const string& indexFile){
+    fstream fileout(indexFile,ios::app|ios::binary|ios::ate);
 
+    //key_length key value(we know its 8 bytes because its stored in uint64_t)
+    uint32_t k_len=key.size();
+    fileout.write(reinterpret_cast<const char*>(&k_len),sizeof(k_len));
+    fileout.write(key.data(),k_len);
+    fileout.write(reinterpret_cast<const char*>(&offset_range),sizeof(offset_range));
+    fileout.flush();
+}
 //function for recovering Index table
- unordered_map<string,uint64_t> recoverIndex(string& StorageFileName){
+ unordered_map<string,uint64_t> recoverIndex(){
     string tableFile="table.bin";
     unordered_map<string,uint64_t>table;
-    fstream ff(StorageFileName,ios::binary|ios::in);
+    fstream ff(EngineConfig::STORAGE_FILE,ios::binary|ios::in);
     if(!ff){
         cout<<"File not found\n";
         cout<<"No Index To Recover\n";
@@ -156,7 +167,7 @@ uint64_t saveFileUtil(string key,string value, RecordType type=RECORD_SET){
     uint64_t file_size=ff.tellg();
     ff.seekg(0,ios::beg);
 
-    while(ff.tellg()<file_size){
+    while(static_cast<uint64_t>(ff.tellg())<file_size){
 
         uint64_t current_offset=ff.tellg();
 
@@ -184,25 +195,14 @@ uint64_t saveFileUtil(string key,string value, RecordType type=RECORD_SET){
         saveTable(key,current_offset,tableFile);
     }
     cout<<"Recovered Index\n";
-    printTable(table);
+    // printTable(table);
     return table;
 }
 
 
 
 
-// UTIL TO SAVE THE TABLE OF OFFSET IN A PERSISTENT FILE SO THAT WE CAN
-// FIND THE KEY VALUE PAIR STORED IN STORAGE.TXT USING THIS TABLE
-void saveTable(string key,uint64_t offset_range,const string& indexFile){
-    fstream fileout(indexFile,ios::app|ios::binary|ios::ate);
 
-    //key_length key value(we know its 8 bytes because its stored in uint64_t)
-    uint32_t k_len=key.size();
-    fileout.write(reinterpret_cast<const char*>(&k_len),sizeof(k_len));
-    fileout.write(key.data(),k_len);
-    fileout.write(reinterpret_cast<const char*>(&offset_range),sizeof(offset_range));
-    fileout.close();
-}
 
 
 // THE SAVED AND PERSISTENT OFFSET TABLE INTO A BINARY FILE
@@ -232,14 +232,15 @@ void persistTable(const unordered_map<string,uint64_t>&table,const string& index
 
 unordered_map<string,uint64_t> loadIndexTableFromFile(const string& filename){
     unordered_map<string,uint64_t> table;
-    fstream ff(filename,ios::binary|ios::in);
+    fstream ff(EngineConfig::INDEX_FILE,ios::binary|ios::in);
     if(!ff.is_open()){
         cout<<"No Indexing Yet\n";
         //here we can call a recovery function too
-        string originalFileName="storage.bin";
-        table=recoverIndex(originalFileName);
+        table=recoverIndex();
+        persistTable(table,EngineConfig::INDEX_FILE);
         return table;
     }
+
 
     while(true){
         uint32_t k_len;
@@ -278,41 +279,35 @@ string get_value(string key,unordered_map<string,uint64_t>&table){
     string ss="storage.bin";
 
     //storage format is [key_length] [key_content] [value_length] [value_content]
-    fstream ff(ss,ios::in|ios::binary);
+    fstream ff(EngineConfig::STORAGE_FILE,ios::in|ios::binary);
     if(!ff) return "FILE OPEN FAILED\n";
     uint64_t start_offset=table[key];
 
 
     //pointing offset to proper place for reading
     ff.seekg(start_offset);
+    Header head;
+    ff.read(reinterpret_cast<char*>(&head),sizeof(Header));
 
-    //we used uint32_t previously to store the key value
-    uint32_t k_len=0,v_len=0;
-    
-    //reading from the curent off set for size of k_len bytes
-    //and pooring it into k_len
-    ff.read((char*)&k_len,sizeof(k_len));
-    if(!ff) return "READ FAIL KLEN\n";
+    string key_data(head.key_len,'\0');
+    ff.read(&key_data[0],head.key_len);
 
-    //moving the read pointer by k_len (cuz we already know the key)
-    ff.seekg(k_len,ios::cur);
+    string value_data(head.value_len,'\0');
+    ff.read(&value_data[0],head.value_len);
 
-    //not reading the value length (same mechanism as we did in key length above)
-    ff.read((char*)&v_len,sizeof(v_len));
-    if(!ff) return "READ FAIL VLEN\n";
+    uint32_t crc_check = 0xFFFFFFFF;
+    crc_check=checksum_CRC32(reinterpret_cast<const char*>(&head)+4,sizeof(Header)-4,crc_check);
+    crc_check = checksum_CRC32(key_data.data(),key_data.size(),crc_check);
+    crc_check = checksum_CRC32(value_data.data(),value_data.size(),crc_check);
+    crc_check=~crc_check;
 
-    if(v_len > 10'000'000)  // sanity guard
-        return "CORRUPTED LENGTH\n";
+    if(crc_check!=head.crc){
+        return "ERROR: Data corruption detected (CRC mismatch)\n";
+    }
 
-    //creating a string of v_len characters pre-filled with spaces.
-    string value(v_len,'\0');
 
-    //in c++ string data is stored contiguously, thats why providing the address 
-    //of the first character allows .read() to fill the entire string's memory block 
-    //directly from the file.
-    ff.read(&value[0],v_len);
+    return (head.type==RECORD_DELETE)?"KEY DELETED":value_data;
 
-    return value;
 }
 
 

@@ -151,10 +151,48 @@ END
 SET test2 <<
 JSON-like content:
 {
-  "user": "tim",
-  "project": "kv-store",
-  "status": "learning serialization"
+  "user": {
+    "id": 101,
+    "profile": {
+      "name": "Tim",
+      "email": "tim@example.com",
+      "skills": ["C++", "Distributed Systems", "Docker"],
+      "education": {
+        "degree": "B.Tech",
+        "year": 2026,
+        "university": {
+          "name": "Tokyo Tech",
+          "location": {
+            "city": "Tokyo",
+            "country": "Japan"
+          }
+        }
+      }
+    },
+    "projects": [
+      {
+        "title": "KV Storage Engine",
+        "tech_stack": {
+          "language": "C++",
+          "features": ["WAL", "CRC32", "Index Recovery"]
+        }
+      },
+      {
+        "title": "Video Processing Pipeline",
+        "tech_stack": {
+          "queue": "BullMQ",
+          "storage": "MinIO",
+          "transcoding": {
+            "tool": "FFmpeg",
+            "format": "HLS",
+            "segments": [".ts", ".m3u8"]
+          }
+        }
+      }
+    ]
+  }
 }
+
 END
 ```
 
