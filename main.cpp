@@ -21,6 +21,8 @@ namespace EngineConfig{
     constexpr const char* STORAGE_FILE = "storage.bin";
     constexpr const char* INDEX_FILE = "table.bin";
 }
+
+
 // ***********************
 // Forward declarations
 // ************************
@@ -43,7 +45,14 @@ uint16_t type;
 uint32_t key_len;
 uint32_t value_len;
 };
-#pragma pack(pop)
+#pragma pack(pop);
+
+//enumerating type of the record
+enum RecordType : uint16_t {
+    RECORD_SET = 1,
+    RECORD_DELETE = 2
+};
+
 
 //********************
 // HELPER FUNCTIONS
@@ -83,24 +92,53 @@ uint32_t checksum_CRC32(const char* data, size_t length, uint32_t crc) {
 //*******************
 
 //UTIL TO SAVE KEY VALUE PAIR IN A PERSISTENT TXT FILE 
-uint64_t saveFileUtil(string key,string value){
-    fstream fileout("storage.bin",ios::app|ios::binary|ios::ate);
+uint64_t saveFileUtil(string key,string value, RecordType type=RECORD_SET){
+    fstream fileout(EngineConfig::STORAGE_FILE,ios::app|ios::binary|ios::ate);
     
+    if(!fileout){
+        cout<<"Could not open storage file\n";
+        return 0;
+    }
+
     fileout.seekp(0,ios::end);
     
     //record offset for indexing
-    uint64_t x=fileout.tellp();
-    
-    uint32_t k=key.size();
-    uint32_t v=value.size();
-    
-    fileout.write(reinterpret_cast<const char*>(&k),sizeof(k));
-    fileout.write(key.data(),k);
+    uint64_t offset=fileout.tellp();
 
-    fileout.write(reinterpret_cast<const char*>(&v),sizeof(v));
-    fileout.write(value.data(),v);
+    Header head;
+    head.magic=EngineConfig::MAGIC;
+    head.type=type;
+    head.key_len=static_cast<uint32_t>(key.size());
+    head.value_len=static_cast<uint32_t>(value.size());
 
-    return x;
+    //feeding CRC streaming
+    uint32_t crc_state=0xFFFFFFFF; //initital state
+    crc_state=checksum_CRC32(reinterpret_cast<const char*>(&head)+4,sizeof(head)-4,crc_state);
+    crc_state=checksum_CRC32(key.data(),key.size(),crc_state);
+    crc_state=checksum_CRC32(value.data(),value.size(),crc_state);
+    head.crc=~crc_state;
+
+    if(!fileout.write(reinterpret_cast<const char*>(&head),sizeof(Header))){
+        cout<<"Failed to write header to storage file\n";
+        return 0;
+    }
+    if(!fileout.write(key.data(),head.key_len)){
+        cout<<"failed to write key data to storage file\n";
+        return 0;
+    }
+    if(!fileout.write(value.data(),head.value_len)){
+        cout<<"Failed to write value data to storage file\n";
+        return 0;
+    }
+    fileout.flush();
+
+      if (fileout.fail()) {
+        cout << "Error occurred while writing to file\n";
+        return 0;
+    }
+
+    return offset;
+
 }
 
 
