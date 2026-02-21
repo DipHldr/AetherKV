@@ -113,7 +113,7 @@ uint64_t saveFileUtil(string key,string value, RecordType type=RECORD_SET){
 
     //feeding CRC streaming
     uint32_t crc_state=0xFFFFFFFF; //initital state
-    crc_state=checksum_CRC32(reinterpret_cast<const char*>(&head)+4,sizeof(head)-4,crc_state);
+    crc_state=checksum_CRC32(reinterpret_cast<const char*>(&head)+4,sizeof(Header)-4,crc_state);
     crc_state=checksum_CRC32(key.data(),key.size(),crc_state);
     crc_state=checksum_CRC32(value.data(),value.size(),crc_state);
     head.crc=~crc_state;
@@ -152,26 +152,36 @@ uint64_t saveFileUtil(string key,string value, RecordType type=RECORD_SET){
         cout<<"No Index To Recover\n";
         return table;
     }
+    ff.seekg(0,ios::end);
+    uint64_t file_size=ff.tellg();
+    ff.seekg(0,ios::beg);
 
-    while(true){
-        uint64_t offset=static_cast<uint64_t>(ff.tellg());
+    while(ff.tellg()<file_size){
 
-        uint32_t k_len;
-        //getting key length
-       if(!ff.read(reinterpret_cast<char*>(&k_len),sizeof(k_len)))break;
+        uint64_t current_offset=ff.tellg();
 
-        string key(k_len,'\0');
+        Header head;
+        if(!ff.read(reinterpret_cast<char*>(&head),sizeof(Header)))break;
 
-        if(!ff.read(key.data(),k_len))break;
+        if(head.magic!=EngineConfig::MAGIC){
+            ff.seekg(current_offset+1);
+            continue;
+        }
 
-        uint32_t v_len;
+        string key(head.key_len,'\0');
+        if(!ff.read(&key[0],head.key_len)){
+            ff.seekg(current_offset+1);
+            continue;
+        }
 
-        if(!ff.read(reinterpret_cast<char*>(&v_len),sizeof(v_len)))break;
+        ff.seekg(head.value_len,ios::cur);
 
-        ff.seekg(v_len,ios::cur);
-
-        table[key]=offset;
-        saveTable(key,offset,tableFile);
+        if(head.type==RECORD_SET){
+            table[key]=current_offset;
+        }else if(head.type==RECORD_DELETE){
+            table.erase(key);
+        }
+        saveTable(key,current_offset,tableFile);
     }
     cout<<"Recovered Index\n";
     printTable(table);
